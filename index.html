@@ -3,18 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Perceptron & MLP Visualizer</title>
+    <title>3D MLP Visualizer & Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
     <style>
         :root {
-            --primary: #2563eb;
-            --bg: #f8fafc;
-            --card: #ffffff;
-            --text: #1e293b;
+            --primary: #6366f1; /* Indigo */
+            --bg: #0f172a;      /* Dark Slate */
+            --card: #1e293b;    /* Slate 800 */
+            --text: #f8fafc;    /* Slate 50 */
+            --accent: #38bdf8;  /* Sky Blue */
         }
 
         body {
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
@@ -22,428 +23,492 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+            min-height: 100vh;
         }
 
-        h1 { margin-bottom: 10px; }
-        p { color: #64748b; margin-bottom: 30px; }
+        h1 { margin-bottom: 5px; color: var(--accent); letter-spacing: -0.5px; }
+        p.subtitle { color: #94a3b8; margin-bottom: 25px; font-weight: 300; }
 
-        .container {
+        .main-layout {
             display: flex;
             flex-wrap: wrap;
-            gap: 20px;
-            max-width: 1200px;
+            gap: 25px;
+            max-width: 1400px;
             width: 100%;
             justify-content: center;
+            align-items: flex-start;
         }
 
-        .controls {
-            flex: 1;
-            min-width: 300px;
+        /* --- Panel Styling --- */
+        .panel {
             background: var(--card);
             padding: 25px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            height: fit-content;
+            border-radius: 16px;
+            border: 1px solid #334155;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
         }
 
-        .graph-container {
+        .controls-panel {
+            flex: 1;
+            min-width: 340px;
+            max-width: 400px;
+        }
+
+        .graph-panel {
             flex: 2;
-            min-width: 400px;
-            background: var(--card);
-            padding: 10px;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            height: 500px;
+            min-width: 500px;
+            height: 650px; 
+            padding: 5px;
+            position: relative;
         }
 
-        .control-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
+        /* --- Form Elements --- */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.85rem; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
         
         select, input[type="number"] {
             width: 100%;
             padding: 10px;
-            border: 1px solid #cbd5e1;
-            border-radius: 6px;
+            border: 1px solid #475569;
+            border-radius: 8px;
             font-size: 1rem;
-            margin-bottom: 5px;
+            background: #0f172a;
+            color: white;
         }
+        select:focus, input:focus { outline: none; border-color: var(--accent); }
 
-        .buttons { display: flex; gap: 10px; margin-top: 20px; }
-        
-        button {
-            flex: 1;
-            padding: 12px;
-            border: none;
-            border-radius: 6px;
-            font-weight: 600;
+        /* --- Slider --- */
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent);
             cursor: pointer;
-            transition: opacity 0.2s;
         }
 
-        #trainBtn { background-color: var(--primary); color: white; }
-        #resetBtn { background-color: #ef4444; color: white; }
+        /* --- Buttons --- */
+        .buttons { display: flex; gap: 10px; margin-top: 25px; }
+        button {
+            flex: 1; padding: 12px; border: none; border-radius: 8px;
+            font-weight: 700; font-size: 0.9rem; cursor: pointer;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            transition: transform 0.1s;
+        }
+        #trainBtn { background: var(--primary); color: white; }
+        #resetBtn { background: #334155; color: white; }
+        button:hover { filter: brightness(1.1); }
+        button:active { transform: scale(0.98); }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
-        button:hover:not(:disabled) { opacity: 0.9; }
 
-        .stats {
-            margin-top: 20px;
+        /* --- Dashboard & Stats --- */
+        .dashboard {
+            margin-top: 25px;
             padding-top: 20px;
-            border-top: 1px solid #e2e8f0;
-            font-family: monospace;
-            font-size: 0.9rem;
+            border-top: 1px solid #334155;
         }
+        
+        .stat-row { 
+            display: flex; justify-content: space-between; 
+            margin-bottom: 8px; 
+            font-family: 'Roboto Mono', monospace; 
+            font-size: 0.9rem; 
+        }
+        .stat-val { color: var(--accent); }
 
-        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; }
-        .success { color: #16a34a; font-weight: bold; }
-        .fail { color: #dc2626; font-weight: bold; }
+        /* Parameter Table */
+        .param-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.85rem;
+        }
+        .param-table th { 
+            text-align: left; color: #64748b; 
+            font-size: 0.75rem; 
+            border-bottom: 1px solid #334155; 
+            padding-bottom: 5px; 
+        }
+        .param-table td { padding: 6px 0; border-bottom: 1px solid #1e293b; }
+        .w-val { color: #a5b4fc; } /* Weight color */
+        .b-val { color: #fca5a5; } /* Bias color */
 
+        /* Status Badge */
+        #statusBadge {
+            display: block;
+            margin-top: 15px;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            background: #334155;
+        }
     </style>
 </head>
 <body>
 
-    <h1>Perceptron & MLP Visualizer</h1>
-    <p>Visualize how a neural network learns logic gates. Switch to <strong>XOR</strong> to see the Multi-Layer Perceptron.</p>
+    <h1>Neural Network Studio</h1>
+    <p class="subtitle">Interactive 3D Visualization of Perceptron Convergence</p>
 
-    <div class="container">
-        <div class="controls">
+    <div class="main-layout">
+        <div class="panel controls-panel">
             <div class="control-group">
-                <label for="gateSelect">Logic Gate</label>
+                <label>Problem Type</label>
                 <select id="gateSelect">
+                    <option value="XOR">XOR (Non-Linear / MLP)</option>
                     <option value="AND">AND (Linear)</option>
                     <option value="OR">OR (Linear)</option>
-                    <option value="NAND">NAND (Linear)</option>
-                    <option value="XOR">XOR (Non-Linear / MLP)</option>
                 </select>
             </div>
 
             <div class="control-group">
-                <label for="learningRate">Learning Rate (Alpha)</label>
-                <input type="number" id="learningRate" value="0.05" step="0.01" min="0.001" max="1">
+                <label>Learning Rate ($\alpha$)</label>
+                <input type="number" id="learningRate" value="0.1" step="0.01" min="0.001" max="1">
+            </div>
+
+            <div class="control-group">
+                <label>Speed</label>
+                <input type="range" id="speedSlider" min="1" max="50" value="10">
             </div>
 
             <div class="buttons">
-                <button id="trainBtn">Start Training</button>
+                <button id="trainBtn">Train</button>
                 <button id="resetBtn">Reset</button>
             </div>
 
-            <div class="stats" id="statsPanel">
-                <div class="stat-row"><span>Epoch:</span> <span id="epochVal">0</span></div>
-                <div class="stat-row"><span>Total Error:</span> <span id="errorVal">0</span></div>
-                <div class="stat-row" id="weightsDisplay"></div>
-                <div style="margin-top:10px" id="statusMsg">Ready to train.</div>
+            <div class="dashboard">
+                <div class="stat-row"><span>Epoch:</span> <span id="epochDisplay" class="stat-val">0</span></div>
+                <div class="stat-row"><span>Loss (MSE):</span> <span id="lossDisplay" class="stat-val">0.0000</span></div>
+                
+                <div id="statusBadge">Ready</div>
+
+                <div id="paramContainer">
+                    <div style="margin-top: 20px; font-size: 0.8rem; font-weight: bold; color: #94a3b8; text-transform: uppercase;">
+                        Network Parameters
+                    </div>
+                    <table class="param-table">
+                        <thead>
+                            <tr>
+                                <th>Layer</th>
+                                <th>Weights ($w_1, w_2$)</th>
+                                <th>Bias ($b$)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paramBody">
+                            </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <div class="graph-container" id="plotDiv"></div>
+        <div class="panel graph-panel" id="plotDiv"></div>
     </div>
 
     <script>
-        // --- Configuration & State ---
+        // --- State Management ---
         const gates = {
             AND:  { data: [[0,0,0], [0,1,0], [1,0,0], [1,1,1]], type: 'single' },
             OR:   { data: [[0,0,0], [0,1,1], [1,0,1], [1,1,1]], type: 'single' },
-            NAND: { data: [[0,0,1], [0,1,1], [1,0,1], [1,1,0]], type: 'single' },
             XOR:  { data: [[0,0,0], [0,1,1], [1,0,1], [1,1,0]], type: 'mlp' }
         };
 
-        let currentGate = 'AND';
-        let isTraining = false;
-        let animationId = null;
-        let epoch = 0;
+        let state = {
+            gate: 'XOR',
+            running: false,
+            epoch: 0,
+            weights: [0,0], bias: 0, // Single Perceptron
+            // MLP (2-2-1): Hidden[Neuron][w1,w2], HiddenBias[n], Output[w1,w2], OutputBias
+            hiddenW: [[0,0],[0,0]], hiddenB: [0,0],
+            outW: [0,0], outB: 0
+        };
         
-        // Single Perceptron State
-        let weights = [Math.random() * 2 - 1, Math.random() * 2 - 1]; // w1, w2
-        let bias = Math.random() * 2 - 1;
+        let animFrame;
 
-        // MLP State (2-2-1 Architecture for XOR)
-        // Hidden Layer (2 neurons)
-        let hiddenWeights = [
-            [Math.random(), Math.random()], // Neuron 1 [w1, w2]
-            [Math.random(), Math.random()]  // Neuron 2 [w1, w2]
-        ];
-        let hiddenBias = [Math.random(), Math.random()];
-        // Output Layer (1 neuron)
-        let outputWeights = [Math.random(), Math.random()];
-        let outputBias = Math.random();
+        // --- Math Helpers ---
+        const sigmoid = x => 1 / (1 + Math.exp(-x));
+        const dSigmoid = y => y * (1 - y); // derivative using output y
+        const rand = () => Math.random() * 2 - 1; // -1 to 1
 
-        // --- DOM Elements ---
-        const plotDiv = document.getElementById('plotDiv');
-        const epochDisplay = document.getElementById('epochVal');
-        const errorDisplay = document.getElementById('errorVal');
-        const statusMsg = document.getElementById('statusMsg');
-        const trainBtn = document.getElementById('trainBtn');
-
-        // --- Core Math Functions ---
-        // Step function for single perceptron
-        const step = (n) => n >= 0 ? 1 : 0;
-        
-        // Sigmoid for MLP
-        const sigmoid = (x) => 1 / (1 + Math.exp(-x));
-        const sigmoidDeriv = (x) => x * (1 - x); // derivative assuming x is already sigmoid(output)
-
-        // --- Initialization ---
+        // --- Core Logic ---
         function init() {
-            resetWeights();
-            plotGraph();
-            updateStats(0);
+            resetNetwork();
+            render();
         }
 
-        function resetWeights() {
-            // Reset Single Perceptron
-            weights = [Math.random()-0.5, Math.random()-0.5];
-            bias = Math.random()-0.5;
-
-            // Reset MLP
-            hiddenWeights = [[Math.random()-0.5, Math.random()-0.5], [Math.random()-0.5, Math.random()-0.5]];
-            hiddenBias = [Math.random()-0.5, Math.random()-0.5];
-            outputWeights = [Math.random()-0.5, Math.random()-0.5];
-            outputBias = Math.random()-0.5;
-
-            epoch = 0;
-            isTraining = false;
-            if(animationId) cancelAnimationFrame(animationId);
-            trainBtn.innerText = "Start Training";
-            trainBtn.disabled = false;
-            statusMsg.innerText = "Ready to train.";
-            statusMsg.className = "";
-            plotGraph();
-        }
-
-        // --- Training Logic: Single Perceptron ---
-        function trainSinglePerceptron(lr) {
-            let totalError = 0;
-            const data = gates[currentGate].data;
-
-            for(let i=0; i<data.length; i++) {
-                const [x1, x2, target] = data[i];
-                const weightedSum = x1 * weights[0] + x2 * weights[1] + bias;
-                const prediction = step(weightedSum);
-                const error = target - prediction;
-
-                if (error !== 0) {
-                    weights[0] += lr * error * x1;
-                    weights[1] += lr * error * x2;
-                    bias += lr * error;
-                    totalError += Math.abs(error);
-                }
-            }
-            return totalError;
-        }
-
-        // --- Training Logic: MLP (Backpropagation) ---
-        function trainMLP(lr) {
-            let totalError = 0;
-            const data = gates[currentGate].data;
-
-            for(let i=0; i<data.length; i++) {
-                const [x1, x2, target] = data[i];
-
-                // 1. Forward Pass
-                // Hidden Layer
-                let h1_in = x1 * hiddenWeights[0][0] + x2 * hiddenWeights[0][1] + hiddenBias[0];
-                let h1_out = sigmoid(h1_in);
-                
-                let h2_in = x1 * hiddenWeights[1][0] + x2 * hiddenWeights[1][1] + hiddenBias[1];
-                let h2_out = sigmoid(h2_in);
-
-                // Output Layer
-                let o_in = h1_out * outputWeights[0] + h2_out * outputWeights[1] + outputBias;
-                let final_out = sigmoid(o_in);
-
-                // Calculate Error
-                let error = target - final_out;
-                totalError += Math.abs(error);
-
-                // 2. Backward Pass
-                // Output Gradients
-                // dError/dOutput * dOutput/dInput
-                let d_output = error * sigmoidDeriv(final_out);
-
-                // Hidden Gradients
-                let error_h1 = d_output * outputWeights[0];
-                let error_h2 = d_output * outputWeights[1];
-                
-                let d_h1 = error_h1 * sigmoidDeriv(h1_out);
-                let d_h2 = error_h2 * sigmoidDeriv(h2_out);
-
-                // 3. Update Weights
-                outputWeights[0] += lr * d_output * h1_out;
-                outputWeights[1] += lr * d_output * h2_out;
-                outputBias     += lr * d_output;
-
-                hiddenWeights[0][0] += lr * d_h1 * x1;
-                hiddenWeights[0][1] += lr * d_h1 * x2;
-                hiddenBias[0]      += lr * d_h1;
-
-                hiddenWeights[1][0] += lr * d_h2 * x1;
-                hiddenWeights[1][1] += lr * d_h2 * x2;
-                hiddenBias[1]      += lr * d_h2;
-            }
-            return totalError;
-        }
-
-        // --- Training Loop ---
-        function startTraining() {
-            if (isTraining) return;
-            isTraining = true;
-            trainBtn.disabled = true;
-            statusMsg.innerText = "Training...";
+        function resetNetwork() {
+            state.running = false;
+            cancelAnimationFrame(animFrame);
+            state.epoch = 0;
             
-            const lr = parseFloat(document.getElementById('learningRate').value);
-            const gateType = gates[currentGate].type;
+            // Randomize parameters
+            state.weights = [rand(), rand()]; 
+            state.bias = rand();
 
-            function loop() {
-                if (!isTraining) return;
+            state.hiddenW = [[rand(), rand()], [rand(), rand()]];
+            state.hiddenB = [rand(), rand()];
+            state.outW = [rand(), rand()];
+            state.outB = rand();
 
-                // Run a batch of epochs for speed
-                let currentError = 0;
-                let stepsPerFrame = gateType === 'mlp' ? 50 : 5; // MLP needs more steps to converge visually
-
-                for(let k=0; k<stepsPerFrame; k++) {
-                    epoch++;
-                    if(gateType === 'single') {
-                        currentError = trainSinglePerceptron(lr);
-                    } else {
-                        currentError = trainMLP(lr);
-                    }
-                }
-
-                updateStats(currentError);
-                plotGraph();
-
-                // Stop conditions
-                let converged = false;
-                if(gateType === 'single' && currentError === 0) converged = true;
-                if(gateType === 'mlp' && currentError < 0.1) converged = true; // Approx convergence for MLP
-
-                if (converged) {
-                    isTraining = false;
-                    trainBtn.disabled = false;
-                    statusMsg.innerText = `Converged in ${epoch} epochs!`;
-                    statusMsg.className = "success";
-                } else if (epoch > 10000) {
-                    isTraining = false;
-                    trainBtn.disabled = false;
-                    statusMsg.innerText = "Stopped (Max Epochs Reached).";
-                    statusMsg.className = "fail";
-                } else {
-                    animationId = requestAnimationFrame(loop);
-                }
-            }
-            loop();
+            document.getElementById('trainBtn').disabled = false;
+            document.getElementById('statusBadge').innerText = "Ready";
+            document.getElementById('statusBadge').style.background = "#334155";
+            
+            updateUI(0);
+            render();
         }
 
-        // --- Visualization (Plotly) ---
-        function plotGraph() {
-            const dataPoints = gates[currentGate].data;
-            const type = gates[currentGate].type;
+        function trainStep(lr) {
+            const config = gates[state.gate];
+            let totalError = 0;
 
-            // 1. Scatter plot for the logic gate points (0s and 1s)
-            const x0 = [], y0 = [], x1 = [], y1 = [];
-            dataPoints.forEach(pt => {
-                if(pt[2] === 0) { x0.push(pt[0]); y0.push(pt[1]); }
-                else { x1.push(pt[0]); y1.push(pt[1]); }
+            // Iterate through all data points
+            for(let pt of config.data) {
+                const [x1, x2, target] = pt;
+
+                if (config.type === 'single') {
+                    // Linear Perceptron Rule
+                    const y = (x1 * state.weights[0] + x2 * state.weights[1] + state.bias) >= 0 ? 1 : 0;
+                    const err = target - y;
+                    
+                    if (err !== 0) {
+                        state.weights[0] += lr * err * x1;
+                        state.weights[1] += lr * err * x2;
+                        state.bias += lr * err;
+                        totalError += Math.abs(err);
+                    }
+
+                } else {
+                    // MLP Backpropagation
+                    // 1. Forward
+                    const h1 = sigmoid(x1*state.hiddenW[0][0] + x2*state.hiddenW[0][1] + state.hiddenB[0]);
+                    const h2 = sigmoid(x1*state.hiddenW[1][0] + x2*state.hiddenW[1][1] + state.hiddenB[1]);
+                    const out = sigmoid(h1*state.outW[0] + h2*state.outW[1] + state.outB);
+
+                    // 2. Error
+                    const err = target - out;
+                    totalError += (err * err);
+
+                    // 3. Backward
+                    const dOut = err * dSigmoid(out);
+                    
+                    const dH1 = dOut * state.outW[0] * dSigmoid(h1);
+                    const dH2 = dOut * state.outW[1] * dSigmoid(h2);
+
+                    // 4. Update
+                    state.outW[0] += lr * dOut * h1;
+                    state.outW[1] += lr * dOut * h2;
+                    state.outB    += lr * dOut;
+
+                    state.hiddenW[0][0] += lr * dH1 * x1;
+                    state.hiddenW[0][1] += lr * dH1 * x2;
+                    state.hiddenB[0]   += lr * dH1;
+
+                    state.hiddenW[1][0] += lr * dH2 * x1;
+                    state.hiddenW[1][1] += lr * dH2 * x2;
+                    state.hiddenB[1]   += lr * dH2;
+                }
+            }
+            return totalError / config.data.length;
+        }
+
+        function loop() {
+            if(!state.running) return;
+
+            const lr = parseFloat(document.getElementById('learningRate').value);
+            const speed = parseInt(document.getElementById('speedSlider').value);
+            const isMLP = gates[state.gate].type === 'mlp';
+            
+            // Speed Multiplier: MLP needs more steps to visualize change
+            const steps = isMLP ? speed * 10 : speed; 
+            
+            let loss = 0;
+            for(let i=0; i<steps; i++) {
+                state.epoch++;
+                loss = trainStep(lr);
+            }
+
+            updateUI(loss);
+            
+            // Re-render graph every frame (or skip frames if too slow)
+            render();
+
+            // Convergence Check
+            if ((!isMLP && loss === 0) || (isMLP && loss < 0.002)) {
+                state.running = false;
+                document.getElementById('trainBtn').disabled = false;
+                document.getElementById('statusBadge').innerText = `Converged in ${state.epoch}`;
+                document.getElementById('statusBadge').style.background = "#22c55e"; // Green
+            } else if (state.epoch > 50000) {
+                state.running = false;
+                document.getElementById('trainBtn').disabled = false;
+                document.getElementById('statusBadge').innerText = "Timeout";
+            } else {
+                animFrame = requestAnimationFrame(loop);
+            }
+        }
+
+        // --- UI & Rendering ---
+        function updateUI(loss) {
+            document.getElementById('epochDisplay').innerText = state.epoch;
+            document.getElementById('lossDisplay').innerText = loss.toFixed(5);
+            
+            // Update Parameter Table
+            const fmt = n => (n>=0 ? '+' : '') + n.toFixed(2);
+            const tbody = document.getElementById('paramBody');
+            
+            if (gates[state.gate].type === 'mlp') {
+                tbody.innerHTML = `
+                    <tr>
+                        <td>Hidden 1</td>
+                        <td class="w-val">${fmt(state.hiddenW[0][0])}, ${fmt(state.hiddenW[0][1])}</td>
+                        <td class="b-val">${fmt(state.hiddenB[0])}</td>
+                    </tr>
+                    <tr>
+                        <td>Hidden 2</td>
+                        <td class="w-val">${fmt(state.hiddenW[1][0])}, ${fmt(state.hiddenW[1][1])}</td>
+                        <td class="b-val">${fmt(state.hiddenB[1])}</td>
+                    </tr>
+                    <tr>
+                        <td>Output</td>
+                        <td class="w-val">${fmt(state.outW[0])}, ${fmt(state.outW[1])}</td>
+                        <td class="b-val">${fmt(state.outB)}</td>
+                    </tr>
+                `;
+            } else {
+                tbody.innerHTML = `
+                    <tr>
+                        <td>Perceptron</td>
+                        <td class="w-val">${fmt(state.weights[0])}, ${fmt(state.weights[1])}</td>
+                        <td class="b-val">${fmt(state.bias)}</td>
+                    </tr>
+                `;
+            }
+        }
+
+        function render() {
+            const type = gates[state.gate].type;
+            const data = gates[state.gate].data;
+            const traces = [];
+
+            // 1. Data Points (Target)
+            const x0=[], y0=[], z0=[];
+            const x1=[], y1=[], z1=[];
+            
+            data.forEach(d => {
+                // If MLP, z is target. If Single, z is just visually separated
+                const zVal = type === 'mlp' ? d[2] : (d[2]===0 ? 0 : 1);
+                if (d[2] === 0) { x0.push(d[0]); y0.push(d[1]); z0.push(zVal); }
+                else { x1.push(d[0]); y1.push(d[1]); z1.push(zVal); }
             });
 
-            const trace0 = {
-                x: x0, y: y0, mode: 'markers', type: 'scatter',
-                name: 'Output 0', marker: { color: 'red', size: 14, symbol: 'circle-open', line: {width: 2} }
-            };
-            const trace1 = {
-                x: x1, y: y1, mode: 'markers', type: 'scatter',
-                name: 'Output 1', marker: { color: 'blue', size: 14, symbol: 'circle' }
-            };
-
-            const traces = [trace0, trace1];
-
-            // 2. Decision Boundary
-            if (type === 'single') {
-                // Line: w1*x + w2*y + b = 0  =>  y = -(w1*x + b) / w2
-                // We create two points to draw the line
-                const xRange = [-0.5, 1.5];
-                let lineY = [];
+            const markerStyle = { size: 10, line: { color: 'white', width: 1 }, opacity: 1 };
+            
+            // 2. Decision Surface / Boundary
+            if (type === 'mlp') {
+                // 3D Surface
+                const N = 20; // Grid resolution
+                const xGrid=[], yGrid=[], zGrid=[];
                 
-                // Avoid division by zero
-                if (Math.abs(weights[1]) < 0.0001) {
-                    // Vertical line case logic (omitted for simplicity in basic demo)
-                    lineY = [-10, 10]; 
-                } else {
-                    lineY = xRange.map(x => -(weights[0] * x + bias) / weights[1]);
-                }
+                for(let i=0; i<=N; i++) xGrid.push(i/N * 1.2 - 0.1);
+                for(let i=0; i<=N; i++) yGrid.push(i/N * 1.2 - 0.1);
 
-                const boundaryTrace = {
-                    x: xRange, y: lineY, mode: 'lines', name: 'Boundary',
-                    line: { color: 'black', width: 2, dash: 'dash' }
-                };
-                traces.push(boundaryTrace);
-            } 
-            else if (type === 'mlp') {
-                // Heatmap for MLP to show non-linear boundary
-                const resolution = 25; // Keep low for performance during animation
-                const xGrid = [], yGrid = [], zGrid = [];
-                
-                for(let i=0; i<=resolution; i++) {
-                    let r = i/resolution * 2 - 0.5; // range -0.5 to 1.5
-                    xGrid.push(r);
-                }
-                for(let i=0; i<=resolution; i++) {
-                    let r = i/resolution * 2 - 0.5;
-                    yGrid.push(r);
-                }
-
-                for(let i=0; i<yGrid.length; i++) {
+                for(let y of yGrid) {
                     let row = [];
-                    for(let j=0; j<xGrid.length; j++) {
-                        // Forward pass prediction for grid point
-                        let x1 = xGrid[j];
-                        let x2 = yGrid[i];
-                        
-                        let h1 = sigmoid(x1 * hiddenWeights[0][0] + x2 * hiddenWeights[0][1] + hiddenBias[0]);
-                        let h2 = sigmoid(x1 * hiddenWeights[1][0] + x2 * hiddenWeights[1][1] + hiddenBias[1]);
-                        let out = sigmoid(h1 * outputWeights[0] + h2 * outputWeights[1] + outputBias);
-                        row.push(out);
+                    for(let x of xGrid) {
+                        const h1 = sigmoid(x*state.hiddenW[0][0] + y*state.hiddenW[0][1] + state.hiddenB[0]);
+                        const h2 = sigmoid(x*state.hiddenW[1][0] + y*state.hiddenW[1][1] + state.hiddenB[1]);
+                        row.push(sigmoid(h1*state.outW[0] + h2*state.outW[1] + state.outB));
                     }
                     zGrid.push(row);
                 }
 
-                const contourTrace = {
-                    z: zGrid, x: xGrid, y: yGrid, type: 'contour',
-                    colorscale: [[0, 'rgba(255,0,0,0.3)'], [1, 'rgba(0,0,255,0.3)']],
-                    showscale: false, contours: { showlines: false }
+                traces.push({
+                    type: 'surface',
+                    x: xGrid, y: yGrid, z: zGrid,
+                    showscale: false,
+                    opacity: 0.9,
+                    colorscale: 'Viridis',
+                    cmin: 0, cmax: 1
+                });
+                
+                // Add points on top (using Scatter3D)
+                traces.push({
+                    type: 'scatter3d', mode: 'markers', name: 'Target 0',
+                    x: x0, y: y0, z: z0, marker: { ...markerStyle, color: '#ef4444', symbol: 'circle-open' }
+                });
+                traces.push({
+                    type: 'scatter3d', mode: 'markers', name: 'Target 1',
+                    x: x1, y: y1, z: z1, marker: { ...markerStyle, color: '#22c55e' }
+                });
+
+                const layout = {
+                    margin: { t: 0, b: 0, l: 0, r: 0 },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    scene: {
+                        xaxis: { title: 'Input 1', color: 'white' },
+                        yaxis: { title: 'Input 2', color: 'white' },
+                        zaxis: { title: 'Output', range: [0, 1], color: 'white' },
+                        camera: { eye: { x: 1.5, y: 1.5, z: 1.2 } },
+                        aspectmode: 'manual', aspectratio: { x: 1, y: 1, z: 0.6 }
+                    },
+                    showlegend: false
                 };
-                // Put contour at bottom
-                traces.unshift(contourTrace);
+                Plotly.react('plotDiv', traces, layout);
+
+            } else {
+                // 2D Line
+                // Line Eq: w1*x + w2*y + b = 0  ->  y = -(w1*x + b)/w2
+                const lineX = [-0.5, 1.5];
+                let lineY = [-2, 2];
+                if (Math.abs(state.weights[1]) > 0.001) {
+                    lineY = lineX.map(x => -(state.weights[0]*x + state.bias)/state.weights[1]);
+                }
+
+                traces.push({
+                    type: 'scatter', mode: 'markers', name: '0',
+                    x: x0, y: y0, marker: { ...markerStyle, color: '#ef4444', size: 14 }
+                });
+                traces.push({
+                    type: 'scatter', mode: 'markers', name: '1',
+                    x: x1, y: y1, marker: { ...markerStyle, color: '#22c55e', size: 14 }
+                });
+                traces.push({
+                    type: 'scatter', mode: 'lines', name: 'Boundary',
+                    x: lineX, y: lineY, line: { color: 'white', dash: 'dash' }
+                });
+
+                const layout = {
+                    margin: { t: 40, b: 40, l: 40, r: 40 },
+                    paper_bgcolor: 'rgba(0,0,0,0)',
+                    plot_bgcolor: 'rgba(0,0,0,0)',
+                    xaxis: { range: [-0.2, 1.2], color: 'white', title: 'Input 1' },
+                    yaxis: { range: [-0.2, 1.2], color: 'white', title: 'Input 2', scaleanchor: 'x' },
+                    showlegend: false
+                };
+                Plotly.react('plotDiv', traces, layout);
             }
-
-            const layout = {
-                xaxis: { range: [-0.5, 1.5], title: 'Input 1' },
-                yaxis: { range: [-0.5, 1.5], title: 'Input 2', scaleanchor: "x" },
-                margin: { t: 20, l: 40, r: 20, b: 40 },
-                showlegend: true,
-                legend: { x: 0, y: 1 }
-            };
-
-            Plotly.newPlot('plotDiv', traces, layout, {responsive: true, displayModeBar: false});
         }
 
-        function updateStats(err) {
-            epochDisplay.innerText = epoch;
-            errorDisplay.innerText = err.toFixed(4);
-        }
+        // --- Listeners ---
+        document.getElementById('trainBtn').addEventListener('click', () => {
+            state.running = true;
+            document.getElementById('trainBtn').disabled = true;
+            document.getElementById('statusBadge').innerText = "Training...";
+            document.getElementById('statusBadge').style.background = "#6366f1"; // Indigo
+            loop();
+        });
 
-        // --- Event Listeners ---
-        document.getElementById('trainBtn').addEventListener('click', startTraining);
+        document.getElementById('resetBtn').addEventListener('click', init);
         
-        document.getElementById('resetBtn').addEventListener('click', () => {
-            resetWeights();
-        });
-
         document.getElementById('gateSelect').addEventListener('change', (e) => {
-            currentGate = e.target.value;
-            resetWeights();
+            state.gate = e.target.value;
+            init();
         });
 
-        // Initialize on Load
+        document.getElementById('learningRate').addEventListener('input', () => {
+           // Live update allowed
+        });
+
+        // Start
         init();
 
     </script>
